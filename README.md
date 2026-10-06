@@ -2,14 +2,15 @@
 
 An Omarchy weather plugin built around the question: **what is today actually going to feel like?**
 
-Current temperature, today's full-day high and low, today plus the next five days, and a quiet sun-and-moon panel. Uses the active Omarchy palette, spacing, and typography. No radar, API key, pip packages, or separate background service.
+Current temperature, today's full-day high and low, the next twelve hours, today plus the next five days, and a quiet sun-and-moon panel. Uses the active Omarchy palette, spacing, and typography. No radar, API key, pip packages, or separate background service.
 
 ![Weather panel with illustrative demo data](preview.png)
 
 ## Features
 
 - Current conditions, feels-like temperature, wind direction and gusts, humidity, and dew point.
-- Today's high and low stay visible even after the warmest part of the day passes.
+- Today's high and low, and what they will feel like, stay visible even after the warmest part of the day passes.
+- The next twelve hours at a glance: temperature, conditions, and rain chance for each.
 - Six forecast cards with highs, lows, conditions, and rain probability.
 - Select a day to inspect its rain or snow chance, peak UV index, sunrise, sunset, and daylight duration.
 - The sun moves along its arc through the day, and dims once it has set.
@@ -18,7 +19,7 @@ Current temperature, today's full-day high and low, today plus the next five day
 - Saved forecast appears immediately while the next request runs.
 - Atomic disk cache, location-specific cache validation, response limits, a 12-second request timeout, and persistent exponential retry backoff.
 - Forecast dates follow the location's timezone. A seven-day response leaves room for rollover to the next local day during an outage.
-- Stale readings are labeled **last known conditions** and **saved forecast**.
+- Stale readings are labeled **last known conditions** and **saved forecast**, and the bar label dims.
 
 ## Requirements
 
@@ -34,7 +35,7 @@ Waybar-era Omarchy installations are not supported. Omarchy shell APIs can chang
 
 The installer links the checkout into `~/.config/omarchy/plugins/neil.weather` and asks the shell to enable it, which adds it to the center of the bar. It does not edit `shell.json` itself, and it leaves other weather plugins and an existing `neil.weather` placement untouched. Running it again is harmless.
 
-If needed, run `omarchy restart shell` after installation. During development, QML edits made through the symlink are not always picked up by `omarchy-shell shell rescanPlugins`; restart the shell to be sure you are looking at the current code.
+If needed, run `omarchy restart shell` after installation. During development, restart the shell after editing QML. As of Omarchy 4.0.4 the shell does not notice edits made through the symlink, and `omarchy-shell shell rescanPlugins` reuses the already-loaded QML.
 
 ## Install with the plugin manager
 
@@ -64,12 +65,14 @@ The bar entry in `~/.config/omarchy/shell.json` accepts:
 - `imperial` forces Fahrenheit and mph.
 - `metric` forces Celsius and km/h.
 
-Sunrise and sunset use a 12- or 24-hour clock according to your locale.
+`wind` sets the wind speed unit on its own: `auto` (default, follows `unit`), `mph`, `km/h`, or `m/s`.
+
+Sunrise, sunset, and the hourly strip use a 12- or 24-hour clock according to your locale.
 
 ## Controls
 
-- Left or right click the bar pill: open/close.
-- Hover the bar pill: today's high/low and freshness.
+- Left or right click the bar pill: open/close. The panel always opens on today.
+- Hover the bar pill: today's high/low and freshness. A dimmed pill means a saved forecast.
 - Middle click: force a refresh.
 - Click **Refresh** in the popup, or press R: force a refresh.
 - Click a forecast card or use Left/Right (or H/L): select the day.
@@ -90,16 +93,21 @@ If the panel reports that the weather helper failed, check that `python3` is on 
 
 ```bash
 python3 -m unittest discover -s tests -v
+node --test tests/model.test.js
 qmllint -I /usr/share/omarchy/shell *.qml
 ```
 
-CI runs the tests on Python 3.9 and 3.13.
+CI runs the Python tests on 3.9 and 3.13, and the display-logic tests under Node.
 
-`weather.py` handles fetching, validation, caching, and lunar estimates. `Panel.qml` handles the shell lifecycle, state, units, and formatting. `WeatherView.qml` is the panel layout; `Metric.qml` and `WeatherText.qml` provide shared styles. There are no third-party Python dependencies.
+`weather.py` handles fetching, validation, caching, and lunar estimates. `Model.js` holds the display logic (units, clock, icons, wording, sun and moon geometry) as plain functions so it can be tested without a running shell. `Panel.qml` handles the shell lifecycle and state. `WeatherView.qml` is the panel layout; `Metric.qml` and `WeatherText.qml` provide shared styles. There are no third-party Python dependencies.
 
 ## Uninstall
 
 Remove `neil.weather` from your bar layout, then remove its directory or symlink under `~/.config/omarchy/plugins/`. The project checkout and shared Omarchy location remain untouched. Optionally remove `~/.local/state/neil-weather/` to clear its cache.
+
+## Changes
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

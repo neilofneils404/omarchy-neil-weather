@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "neil.weather",
   "name": "Weather / Neil",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "Neil",
   "license": "MIT",
   "description": "Six-day weather, daily highs and lows, sun and moon",
@@ -19,10 +19,12 @@
     "allowMultiple": false,
     "defaultSection": "center",
     "defaults": {
-      "unit": "auto"
+      "unit": "auto",
+      "wind": "auto"
     },
     "schema": [
-      { "key": "unit", "type": "enum", "label": "Units", "options": ["auto", "imperial", "metric"], "defaultValue": "auto", "description": "auto follows your system locale. imperial is °F and mph; metric is °C and km/h." }
+      { "key": "unit", "type": "enum", "label": "Units", "options": ["auto", "imperial", "metric"], "defaultValue": "auto", "description": "auto follows your system locale. imperial is °F and mph; metric is °C and km/h." },
+      { "key": "wind", "type": "enum", "label": "Wind speed", "options": ["auto", "mph", "km/h", "m/s"], "defaultValue": "auto", "description": "auto follows Units. Choose a value to show wind in that unit regardless." }
     ]
   }
 }

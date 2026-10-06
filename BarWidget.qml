@@ -69,6 +69,8 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     text: panelLoader.item ? panelLoader.item.label : ""
+    // A saved forecast reads as dimmed; the tooltip says why.
+    dimmed: panelLoader.item ? panelLoader.item.stale === true : false
     fontSize: Style.font.caption
     horizontalMargin: 10
     // Keep today’s full-day high and low one hover away.

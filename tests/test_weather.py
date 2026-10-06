@@ -132,4 +132,36 @@ class WeatherTests(unittest.TestCase):
             self.assertIn('latitude=41.27&', url); self.assertIn('longitude=-82.05&', url)
             self.assertEqual(json.loads((state / 'forecast.json').read_text())['locationKey'], [41.27, -82.05])
 
+    def hourly_fixture(self):
+        raw = fixture()
+        times = ['2026-10-%02dT%02d:00' % (6 + d, h) for d in range(7) for h in range(24)]
+        raw['hourly'] = {'time': times, 'temperature_2m': [15] * 168, 'precipitation_probability': [10] * 168, 'weather_code': [1] * 168, 'is_day': [1] * 168}
+        return raw
+
+    def test_next_twelve_hours_start_with_the_current_hour(self):
+        cache = w.normalize(self.hourly_fixture()); cache['fetchedAt'] = 0
+        self.assertEqual(len(cache['hours']), 168)
+        # 19:40 UTC is 15:40 in New York.
+        result = w.present(cache, now=dt.datetime(2026, 10, 6, 19, 40, tzinfo=dt.timezone.utc))
+        self.assertEqual(len(result['hours']), 12)
+        self.assertEqual(result['hours'][0]['time'], '2026-10-06T15:00')
+        self.assertEqual(result['hours'][-1]['time'], '2026-10-07T02:00')
+
+    def test_bad_hourly_data_never_costs_the_daily_forecast(self):
+        for hourly in (None, [], 'nope', {'time': 'nope'}, {'time': ['2026-10-06T00:00']}):
+            raw = fixture(); raw['hourly'] = hourly
+            self.assertEqual(w.normalize(raw)['hours'], [])
+        raw = self.hourly_fixture(); raw['hourly']['temperature_2m'][0] = None; raw['hourly']['time'][1] = 'not a time'
+        self.assertEqual(len(w.normalize(raw)['hours']), 166)
+        cache = w.normalize(fixture()); cache.update(fetchedAt=0, hours='corrupt')
+        self.assertEqual(w.present(cache, now=dt.datetime(2026, 10, 6, 19, tzinfo=dt.timezone.utc))['hours'], [])
+
+    def test_cache_from_an_older_version_still_loads(self):
+        cache = w.normalize(fixture()); del cache['hours']
+        for day in cache['days']: del day['apparent_temperature_max']
+        cache.update(fetchedAt=0, locationKey=[41, -82], location='Test City')
+        with tempfile.TemporaryDirectory() as directory:
+            result, _ = self.run_client(directory, cache)
+            self.assertTrue(result[-1]['available']); self.assertEqual(result[-1]['hours'], [])
+
 if __name__ == '__main__': unittest.main()

@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "Model.js" as Model
 
 Item {
   id: view
@@ -9,13 +10,6 @@ Item {
   readonly property color muted: Util.alpha(Color.foreground, .62)
 
   implicitHeight: content.implicitHeight
-
-  // Point on a cubic Bézier, one axis at a time. Shared by the sun arc and
-  // the sun glyph that rides it.
-  function bezier(a, b, c, d, t) {
-    var u = 1 - t
-    return u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d
-  }
 
   Flickable {
     anchors.fill: parent
@@ -140,6 +134,84 @@ Item {
               + "   ↓ " + root.temp(root.report.today ? root.report.today.temperature_2m_min : null)
             font.pixelSize: Style.font.display
             font.bold: true
+          }
+          WeatherText {
+            anchors.right: parent.right
+            visible: root.report.today ? root.number(root.report.today.apparent_temperature_max) : false
+            text: root.report.today
+              ? "Feels like " + root.temp(root.report.today.apparent_temperature_max) + " / " + root.temp(root.report.today.apparent_temperature_min)
+              : ""
+            color: view.muted
+            font.pixelSize: Style.font.caption
+          }
+        }
+      }
+
+      // Hourly: how the next twelve hours play out. Hidden until the helper
+      // has hourly data (a forecast cached by an older version has none).
+      WeatherText {
+        visible: root.hours.length > 0
+        text: "NEXT " + root.hours.length + " HOURS"
+        color: view.muted
+        font.pixelSize: Style.font.caption
+        font.letterSpacing: 2
+      }
+
+      Rectangle {
+        visible: root.hours.length > 0
+        width: parent.width
+        height: Style.space(96)
+        radius: Style.space(8)
+        color: Util.alpha(Color.foreground, .035)
+
+        Row {
+          id: hourly
+          anchors.fill: parent
+          anchors.margins: Style.space(6)
+
+          Repeater {
+            model: root.hours
+
+            Column {
+              id: hour
+              required property var modelData
+              required property int index
+
+              width: hourly.width / Math.max(1, root.hours.length)
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Style.space(6)
+
+              WeatherText {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: hour.index === 0 ? "Now" : root.hourLabel(hour.modelData.time)
+                font.pixelSize: Style.font.caption
+                color: hour.index === 0 ? Color.accent : view.muted
+              }
+              WeatherText {
+                width: parent.width
+                height: Style.space(20)
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                text: root.icon(hour.modelData.weather_code, hour.modelData.is_day)
+                font.pixelSize: Style.space(17)
+                color: Color.accent
+              }
+              WeatherText {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: root.temp(hour.modelData.temperature_2m)
+                font.bold: true
+                font.pixelSize: Style.font.caption
+              }
+              WeatherText {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: root.number(hour.modelData.precipitation_probability) ? hour.modelData.precipitation_probability + "%" : "—"
+                color: view.muted
+                font.pixelSize: Style.font.caption
+              }
+            }
           }
         }
       }
@@ -309,8 +381,8 @@ Item {
                 Connections { target: Color; function onAccentChanged() { sunCanvas.requestPaint() } }
               }
               WeatherText {
-                x: Math.max(0, Math.min(sky.width - width, view.bezier(5, sky.width * .25, sky.width * .75, sky.width - 5, sky.t) - width / 2))
-                y: Math.max(0, Math.min(sky.height - height, view.bezier(sky.height - 5, -sky.height * .45, -sky.height * .45, sky.height - 5, sky.t) - height / 2))
+                x: Math.max(0, Math.min(sky.width - width, Model.bezier(5, sky.width * .25, sky.width * .75, sky.width - 5, sky.t) - width / 2))
+                y: Math.max(0, Math.min(sky.height - height, Model.bezier(sky.height - 5, -sky.height * .45, -sky.height * .45, sky.height - 5, sky.t) - height / 2))
                 text: root.icon(0, 1)
                 color: Color.accent
                 opacity: sky.night ? .35 : 1
@@ -371,7 +443,7 @@ Item {
                   // Lit region: the limb on the lit side, closed by the
                   // terminator (the limb squashed by cos of the phase angle).
                   // Waxing is lit on the right in the north, left in the south.
-                  var side = (p < .5 ? 1 : -1) * (root.moon.southern ? -1 : 1)
+                  var side = Model.moonLitSide(p, root.moon.southern === true)
                   var k = Math.cos(2 * Math.PI * p)
                   var steps = 60, j, x, y
                   ctx.fillStyle = Color.accent

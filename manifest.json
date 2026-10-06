@@ -1,1 +1,28 @@
-{"schemaVersion":1,"id":"neil.weather","name":"Weather / Neil","version":"1.0.0","author":"Neil","description":"Six-day weather, daily highs and lows, sun and moon","kinds":["bar-widget"],"entryPoints":{"barWidget":"BarWidget.qml"},"barWidget":{"displayName":"Weather / Neil","description":"Current conditions, today plus five days, sun and moon","category":"Info","allowMultiple":false}}
+{
+  "schemaVersion": 1,
+  "id": "neil.weather",
+  "name": "Weather / Neil",
+  "version": "1.1.0",
+  "author": "Neil",
+  "license": "MIT",
+  "description": "Six-day weather, daily highs and lows, sun and moon",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Weather / Neil",
+    "description": "Current conditions, today plus five days, sun and moon",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "center",
+    "defaults": {
+      "unit": "auto"
+    },
+    "schema": [
+      { "key": "unit", "type": "enum", "label": "Units", "options": ["auto", "imperial", "metric"], "defaultValue": "auto", "description": "auto follows your system locale. imperial is °F and mph; metric is °C and km/h." }
+    ]
+  }
+}

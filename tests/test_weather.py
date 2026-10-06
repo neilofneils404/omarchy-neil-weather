@@ -95,4 +95,41 @@ class WeatherTests(unittest.TestCase):
             self.assertFalse((state / 'forecast.tmp').exists())
             self.assertTrue(json.loads(output.getvalue())['available'])
 
+    def test_southern_hemisphere_is_flagged_for_the_moon(self):
+        now = dt.datetime(2026, 10, 6, tzinfo=dt.timezone.utc)
+        self.assertFalse(w.moon(now)['southern'])
+        self.assertTrue(w.present(None, now=now, southern=True)['moon']['southern'])
+        self.assertEqual(w.moon(now)['phase'], w.moon(now, southern=True)['phase'])
+
+    def test_missing_location_asks_for_one(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = pathlib.Path(directory); output = io.StringIO()
+            with patch.object(w, 'STATE', state), patch.object(w, 'LOCATION', state / 'missing.json'), patch('sys.argv', ['weather.py']), contextlib.redirect_stdout(output):
+                w.main()
+            result = json.loads(output.getvalue())
+            self.assertFalse(result['available']); self.assertIn('location', result['error'])
+
+    def test_unusable_state_directory_is_not_blamed_on_location(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); location = root / 'location.json'
+            location.write_text(json.dumps({'name': 'Test City', 'latitude': -41, 'longitude': 174}))
+            (root / 'file').write_text('')
+            output = io.StringIO()
+            with patch.object(w, 'STATE', root / 'file' / 'state'), patch.object(w, 'LOCATION', location), patch('sys.argv', ['weather.py']), contextlib.redirect_stdout(output):
+                w.main()
+            result = json.loads(output.getvalue())
+            self.assertFalse(result['available']); self.assertIn('cache', result['error'])
+            self.assertNotIn('location', result['error']); self.assertTrue(result['moon']['southern'])
+
+    def test_request_uses_coarse_coordinates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = pathlib.Path(directory); location = state / 'location.json'
+            location.write_text(json.dumps({'name': 'Test City', 'latitude': 41.27255, 'longitude': -82.05459}))
+            response = io.BytesIO(json.dumps(fixture()).encode())
+            with patch.object(w, 'STATE', state), patch.object(w, 'LOCATION', location), patch('sys.argv', ['weather.py', '--force']), patch.object(w.urllib.request, 'urlopen', return_value=response) as request, contextlib.redirect_stdout(io.StringIO()):
+                w.main()
+            url = request.call_args[0][0].full_url
+            self.assertIn('latitude=41.27&', url); self.assertIn('longitude=-82.05&', url)
+            self.assertEqual(json.loads((state / 'forecast.json').read_text())['locationKey'], [41.27, -82.05])
+
 if __name__ == '__main__': unittest.main()

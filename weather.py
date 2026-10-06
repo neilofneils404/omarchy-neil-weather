@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Dependency-free Open-Meteo client. SI cache, atomic writes, bounded requests."""
-import argparse, datetime as dt, fcntl, json, math, os, pathlib, time
+import argparse, datetime as dt, fcntl, http.client, json, math, os, pathlib, time
 import urllib.parse, urllib.request
 from zoneinfo import ZoneInfo
 HOME = pathlib.Path.home()
 STATE = HOME / '.local/state/neil-weather'
 LOCATION = HOME / '.local/state/omarchy/settings/weather.json'
 FIELDS = 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,daylight_duration,uv_index_max'
+CURRENT = 'temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,is_day'
+SYNODIC = 29.530588853
+FETCH_ERRORS = (OSError, ValueError, KeyError, TypeError, http.client.HTTPException)
 
 def number(v):
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
@@ -37,87 +40,124 @@ def normalize(raw):
         raise ValueError('Incomplete six-day forecast')
     return {'timezone': str(zone), 'current': current, 'days': days}
 
-def moon(now):
+def moon(now, southern=False):
     # Mean synodic cycle: approximate phase, not an ephemeris.
     reference = dt.datetime(2000, 1, 6, 18, 14, tzinfo=dt.timezone.utc)
-    phase = ((now - reference).total_seconds() / 86400 / 29.530588853) % 1
+    phase = ((now - reference).total_seconds() / 86400 / SYNODIC) % 1
     names = ['New moon', 'Waxing crescent', 'First quarter', 'Waxing gibbous', 'Full moon', 'Waning gibbous', 'Last quarter', 'Waning crescent']
-    return {'phase': phase, 'name': names[int(phase * 8 + .5) % 8], 'illumination': round((1 - math.cos(2 * math.pi * phase)) * 50), 'nextFull': math.ceil(((.5 - phase) % 1) * 29.530588853), 'nextNew': math.ceil(((1 - phase) % 1) * 29.530588853)}
+    return {
+        'phase': phase,
+        'name': names[int(phase * 8 + .5) % 8],
+        'illumination': round((1 - math.cos(2 * math.pi * phase)) * 50),
+        'nextFull': math.ceil(((.5 - phase) % 1) * SYNODIC),
+        'nextNew': math.ceil(((1 - phase) % 1) * SYNODIC),
+        # The lit side is mirrored when seen from south of the equator.
+        'southern': southern,
+    }
 
-def present(cache, error='', now=None):
+def present(cache, error='', now=None, southern=False):
     now = now or dt.datetime.now(dt.timezone.utc)
     if not cache:
-        return {'available': False, 'error': error, 'moon': moon(now)}
+        return {'available': False, 'error': error, 'moon': moon(now, southern)}
     result = dict(cache)
     local = now.astimezone(ZoneInfo(cache['timezone']))
     result['days'] = [d for d in cache['days'] if d['date'] >= local.date().isoformat()][:6]
     result['today'] = next((d for d in result['days'] if d['date'] == local.date().isoformat()), None)
     age = max(0, now.timestamp() - cache['fetchedAt'])
-    result.update(available=True, stale=bool(error) or age > 1800, ageMinutes=int(age / 60), error=error, localDate=local.date().isoformat(), localTime=local.strftime('%H:%M'), moon=moon(now))
+    result.update(available=True, stale=bool(error) or age > 1800, ageMinutes=int(age / 60), error=error, localDate=local.date().isoformat(), localTime=local.strftime('%H:%M'), moon=moon(now, southern))
     return result
+
+def emit(report):
+    print(json.dumps(report, allow_nan=False), flush=True)
+
+def read_location():
+    loc = json.loads(LOCATION.read_text())
+    # Two decimals (about 1 km) is finer than the forecast grid, and keeps
+    # the exact address out of the request.
+    lat, lon = round(float(loc['latitude']), 2), round(float(loc['longitude']), 2)
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise ValueError('Invalid location coordinates')
+    return str(loc.get('name') or 'Local weather'), lat, lon
+
+def load_cache(path, key, name):
+    try:
+        saved = json.loads(path.read_text())
+        if not isinstance(saved, dict) or saved.get('locationKey') != key:
+            return None
+        normalize({'timezone': saved['timezone'], 'current': saved['current'], 'daily': {'time': [d['date'] for d in saved['days']], **{k: [d.get(k) for d in saved['days']] for k in FIELDS.split(',')}}})
+        if not number(saved.get('fetchedAt')):
+            return None
+        saved['location'] = name
+        return saved
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+def load_retry(path):
+    try:
+        retry = json.loads(path.read_text())
+        if isinstance(retry, dict) and number(retry.get('after', 0)) and number(retry.get('failures', 0)):
+            return retry
+    except (OSError, ValueError):
+        pass
+    return {}
+
+def fetch(lat, lon):
+    params = dict(latitude=lat, longitude=lon, timezone='auto', forecast_days=7, daily=FIELDS, current=CURRENT)
+    url = 'https://api.open-meteo.com/v1/forecast?' + urllib.parse.urlencode(params)
+    request = urllib.request.Request(url, headers={'User-Agent': 'neil.weather/1.1'})
+    with urllib.request.urlopen(request, timeout=12) as response:
+        data = response.read(1048577)
+    if len(data) > 1048576:
+        raise ValueError('Response too large')
+    return normalize(json.loads(data))
+
+def update(force, name, lat, lon):
+    key, southern = [lat, lon], lat < 0
+    path, retry_path = STATE / 'forecast.json', STATE / 'retry.json'
+    cache = load_cache(path, key, name)
+    status = present(cache, southern=southern)
+    if cache and not force and time.time() - cache['fetchedAt'] < 900 and status['today']:
+        emit(status); return
+    if cache:
+        emit(status)
+    # Retry backoff persists across popup opens and shell restarts.
+    retry = load_retry(retry_path)
+    if not force and retry.get('key') == key and retry.get('after', 0) > time.time():
+        emit(present(cache, 'Offline · retrying shortly', southern=southern)); return
+    try:
+        fresh = fetch(lat, lon)
+    except FETCH_ERRORS:
+        failures = retry.get('failures', 0) + 1 if retry.get('key') == key else 1
+        try:
+            retry_path.write_text(json.dumps({'key': key, 'failures': failures, 'after': time.time() + min(900, 30 * 2 ** min(failures - 1, 5))}))
+        except OSError:
+            pass  # No backoff without a writable state directory; the report below still goes out.
+        emit(present(cache, 'Weather service unavailable · saved forecast' if cache else 'Weather service unavailable · retrying', southern=southern)); return
+    fresh.update(fetchedAt=time.time(), locationKey=key, location=name)
+    try:
+        temp = path.with_suffix('.tmp')
+        temp.write_text(json.dumps(fresh, allow_nan=False))
+        os.replace(temp, path)
+        retry_path.unlink(missing_ok=True)
+    except OSError:
+        emit(present(fresh, 'Could not save forecast in ~/.local/state/neil-weather', southern=southern)); return
+    emit(present(fresh, southern=southern))
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--force', action='store_true')
     args = parser.parse_args()
-    STATE.mkdir(parents=True, exist_ok=True)
-    with (STATE / 'lock').open('w') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        cache = None
-        try:
-            loc = json.loads(LOCATION.read_text())
-            lat, lon = float(loc['latitude']), float(loc['longitude'])
-            if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-                raise ValueError('Invalid location coordinates')
-            key = [lat, lon]
-            path = STATE / 'forecast.json'
-            try:
-                saved = json.loads(path.read_text())
-                if isinstance(saved, dict) and saved.get('locationKey') == key:
-                    normalize({'timezone': saved['timezone'], 'current': saved['current'], 'daily': {'time': [d['date'] for d in saved['days']], **{k: [d.get(k) for d in saved['days']] for k in FIELDS.split(',')}}})
-                    ZoneInfo(saved['timezone'])
-                    if isinstance(saved.get('days'), list) and number(saved.get('fetchedAt')):
-                        cache = saved
-                        cache['location'] = loc.get('name', 'Local weather')
-            except (OSError, ValueError, KeyError, TypeError):
-                pass
-            status = present(cache)
-            if cache and not args.force and time.time() - cache['fetchedAt'] < 900 and status['today']:
-                print(json.dumps(status, allow_nan=False)); return
-            if cache:
-                print(json.dumps(status, allow_nan=False), flush=True)
-            # Retry backoff persists across popup opens and shell restarts.
-            retry_path = STATE / 'retry.json'
-            try:
-                retry = json.loads(retry_path.read_text())
-                if not isinstance(retry, dict) or not number(retry.get('after', 0)) or not number(retry.get('failures', 0)):
-                    retry = {}
-            except (OSError, ValueError):
-                retry = {}
-            if not args.force and retry.get('key') == key and retry.get('after', 0) > time.time():
-                print(json.dumps(present(cache, 'Offline · retrying shortly'), allow_nan=False)); return
-            params = dict(latitude=lat, longitude=lon, timezone='auto', forecast_days=7, daily=FIELDS, current='temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day')
-            url = 'https://api.open-meteo.com/v1/forecast?' + urllib.parse.urlencode(params)
-            try:
-                request = urllib.request.Request(url, headers={'User-Agent': 'neil.weather/1.0'})
-                with urllib.request.urlopen(request, timeout=12) as response:
-                    data = response.read(1048577)
-                if len(data) > 1048576:
-                    raise ValueError('Response too large')
-                fresh = normalize(json.loads(data))
-                fresh.update(fetchedAt=time.time(), locationKey=key, location=loc.get('name', 'Local weather'))
-                temp = path.with_suffix('.tmp')
-                temp.write_text(json.dumps(fresh, allow_nan=False))
-                os.replace(temp, path)
-                retry_path.unlink(missing_ok=True)
-                cache = fresh
-            except (OSError, ValueError, KeyError, TypeError) as exc:
-                failures = retry.get('failures', 0) + 1 if retry.get('key') == key else 1
-                retry_path.write_text(json.dumps({'key': key, 'failures': failures, 'after': time.time() + min(900, 30 * 2 ** min(failures - 1, 5))}))
-                print(json.dumps(present(cache, 'Weather service unavailable · saved forecast' if cache else 'Weather service unavailable · retrying'), allow_nan=False)); return
-            print(json.dumps(present(cache), allow_nan=False))
-        except (OSError, ValueError, KeyError, TypeError):
-            print(json.dumps({'available': False, 'error': 'Set your weather location in Omarchy settings', 'moon': moon(dt.datetime.now(dt.timezone.utc))}))
+    try:
+        name, lat, lon = read_location()
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        emit(present(None, 'Set your weather location in Omarchy settings')); return
+    try:
+        STATE.mkdir(parents=True, exist_ok=True)
+        with (STATE / 'lock').open('w') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            update(args.force, name, lat, lon)
+    except OSError:
+        emit(present(None, 'Cannot use the weather cache in ~/.local/state/neil-weather', southern=lat < 0))
 
 if __name__ == '__main__':
     main()

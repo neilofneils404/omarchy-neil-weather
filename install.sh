@@ -2,6 +2,7 @@
 set -euo pipefail
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 plugin_dir="$HOME/.config/omarchy/plugins/neil.weather"
+shell_config="$HOME/.config/omarchy/shell.json"
 mkdir -p "$(dirname "$plugin_dir")"
 if [[ -e "$plugin_dir" || -L "$plugin_dir" ]]; then
   if [[ "$(readlink -f "$plugin_dir")" != "$project_dir" ]]; then
@@ -11,25 +12,12 @@ if [[ -e "$plugin_dir" || -L "$plugin_dir" ]]; then
 else
   ln -s "$project_dir" "$plugin_dir"
 fi
-python3 - <<'PY'
-import json, pathlib, shutil, time
-path = pathlib.Path.home() / '.config/omarchy/shell.json'
-config = json.loads(path.read_text()) if path.exists() else {'version': 1, 'bar': {'layout': {'center': []}}}
-if path.exists():
-    backup = pathlib.Path.home() / '.local/state/neil-weather'
-    backup.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(path, backup / ('shell-before-install-' + str(time.time_ns()) + '.json'))
-layout = config.setdefault('bar', {}).setdefault('layout', {})
-found = any(entry.get('id') == 'neil.weather' for entries in layout.values() for entry in entries)
-if not found:
-    for entries in layout.values():
-        for entry in entries:
-            if entry.get('id') in ('jmthomas00.linecast', 'omarchy.weather'):
-                entry.clear(); entry.update(id='neil.weather', unit='imperial'); found = True; break
-        if found: break
-if not found: layout.setdefault('center', []).append({'id': 'neil.weather', 'unit': 'imperial'})
-path.parent.mkdir(parents=True, exist_ok=True)
-path.write_text(json.dumps(config, indent=2) + '\n')
-PY
 omarchy-shell -q shell rescanPlugins
+# The shell owns shell.json: let it place the widget, and leave an existing
+# placement (and every other plugin's slot) exactly as it is.
+if [[ -f "$shell_config" ]] && jq -e 'any(.bar.layout[]?[]?; .id? == "neil.weather")' "$shell_config" >/dev/null; then
+  echo "neil.weather is already in your bar; left its placement and settings alone."
+else
+  omarchy plugin enable neil.weather
+fi
 printf '%s\n' 'Installed neil.weather. If the bar has not refreshed, run: omarchy restart shell'

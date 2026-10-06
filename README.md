@@ -8,11 +8,13 @@ Current temperature, today's full-day high and low, today plus the next five day
 
 ## Features
 
-- Current conditions, feels-like temperature, wind, and humidity.
+- Current conditions, feels-like temperature, wind direction and gusts, humidity, and dew point.
 - Today's high and low stay visible even after the warmest part of the day passes.
 - Six forecast cards with highs, lows, conditions, and rain probability.
-- Select a day to inspect its rain chance, sunrise, sunset, and daylight duration.
-- Drawn moon phase, approximate illumination, and days until the next full moon.
+- Select a day to inspect its rain or snow chance, peak UV index, sunrise, sunset, and daylight duration.
+- The sun moves along its arc through the day, and dims once it has set.
+- Drawn moon phase, oriented for your hemisphere, with approximate illumination and days until the next full and new moon.
+- Units and the 12- or 24-hour clock follow your system locale by default.
 - Saved forecast appears immediately while the next request runs.
 - Atomic disk cache, location-specific cache validation, response limits, a 12-second request timeout, and persistent exponential retry backoff.
 - Forecast dates follow the location's timezone. A seven-day response leaves room for rollover to the next local day during an outage.
@@ -20,7 +22,7 @@ Current temperature, today's full-day high and low, today plus the next five day
 
 ## Requirements
 
-An Omarchy installation using the Quickshell plugin runtime, Python 3.9+ with system timezone data, and network access to `https://api.open-meteo.com`.
+An Omarchy installation using the Quickshell plugin runtime, Python 3.9+ with system timezone data, and network access to `https://api.open-meteo.com`. Weather icons are Nerd Font glyphs drawn from the shell font, which is a Nerd Font on a stock Omarchy install.
 
 Waybar-era Omarchy installations are not supported. Omarchy shell APIs can change; this initial version was validated against the shell installed on October 6, 2026.
 
@@ -30,11 +32,15 @@ Waybar-era Omarchy installations are not supported. Omarchy shell APIs can chang
 ./install.sh
 ```
 
-The installer links the checkout into `~/.config/omarchy/plugins/neil.weather` and backs up `shell.json` before editing it. It replaces the first Linecast or built-in weather slot, or adds a center slot if neither exists. Existing radar and alert plugins remain separate.
+The installer links the checkout into `~/.config/omarchy/plugins/neil.weather` and asks the shell to enable it, which adds it to the center of the bar. It does not edit `shell.json` itself, and it leaves other weather plugins and an existing `neil.weather` placement untouched. Running it again is harmless.
 
-If needed, run `omarchy restart shell` after installation. During development, `omarchy-shell shell rescanPlugins` reloads the checkout; symlinked source edits may require an explicit rescan.
+If needed, run `omarchy restart shell` after installation. During development, QML edits made through the symlink are not always picked up by `omarchy-shell shell rescanPlugins`; restart the shell to be sure you are looking at the current code.
 
-Once this repository is published, it can also be installed through `omarchy plugin add <repository-url> --enable`.
+## Install with the plugin manager
+
+```bash
+omarchy plugin add https://github.com/neilofneils404/omarchy-neil-weather.git --enable
+```
 
 ## Location and units
 
@@ -44,23 +50,29 @@ Uses Omarchy's shared location at `~/.local/state/omarchy/settings/weather.json`
 omarchy weather location --set "Your city" latitude,longitude
 ```
 
-Stored coordinates are required. This plugin does not silently guess your location from your IP address.
+Stored coordinates are required. This plugin does not silently guess your location from your IP address. Coordinates are rounded to two decimal places (about 1 km) before they are sent to Open-Meteo, which is finer than the forecast grid.
 
 The bar entry in `~/.config/omarchy/shell.json` accepts:
 
 ```json
-{"id": "neil.weather", "unit": "imperial"}
+{"id": "neil.weather", "unit": "auto"}
 ```
 
-Set `unit` to `metric` for Celsius and km/h. Default: Fahrenheit and mph.
+`unit` can also be changed from the widget's settings in Omarchy's bar setup:
+
+- `auto` (default) follows your system locale: Fahrenheit and mph in the US, Celsius and mph in the UK, Celsius and km/h elsewhere.
+- `imperial` forces Fahrenheit and mph.
+- `metric` forces Celsius and km/h.
+
+Sunrise and sunset use a 12- or 24-hour clock according to your locale.
 
 ## Controls
 
 - Left or right click the bar pill: open/close.
 - Hover the bar pill: today's high/low and freshness.
 - Middle click: force a refresh.
-- Click **Refresh** in the popup: force a refresh.
-- Click a forecast card or use Left/Right: select the day.
+- Click **Refresh** in the popup, or press R: force a refresh.
+- Click a forecast card or use Left/Right (or H/L): select the day.
 - Escape or click outside: close.
 - Tab: move between Omarchy panels.
 
@@ -68,9 +80,11 @@ Set `unit` to `metric` for Celsius and km/h. Default: Fahrenheit and mph.
 
 Weather comes from [Open-Meteo](https://open-meteo.com/), using its best-match forecast models. Current conditions are modeled weather, not a personal weather-station observation. Data attribution: Open-Meteo, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-The moon uses a mean synodic cycle calculation anchored to January 6, 2000. Phase, illumination, and next-full-moon timing are **approximate**, and labeled accordingly. It does not provide moonrise/moonset or a precision astronomical ephemeris. Sun times are supplied by Open-Meteo.
+The moon uses a mean synodic cycle calculation anchored to January 6, 2000. Phase, illumination, and next full and new moon timing are **approximate**, and labeled accordingly. It does not provide moonrise/moonset or a precision astronomical ephemeris. Sun times are supplied by Open-Meteo.
 
 Forecasts refresh every 15 minutes; the plugin checks once a minute for freshness, timezone rollover, and retry eligibility. The cache and retry state live in `~/.local/state/neil-weather/`, outside the repository. After an extended outage, expired forecast days disappear rather than being relabeled as today.
+
+If the panel reports that the weather helper failed, check that `python3` is on the shell's `PATH`. A message about the weather cache means `~/.local/state/neil-weather/` is not writable.
 
 ## Development
 
@@ -79,7 +93,9 @@ python3 -m unittest discover -s tests -v
 qmllint -I /usr/share/omarchy/shell *.qml
 ```
 
-`weather.py` handles fetching, validation, caching, and lunar estimates. `Panel.qml` handles the shell lifecycle and state. `WeatherView.qml` is the panel layout; `Metric.qml` and `WeatherText.qml` provide shared styles. There are no third-party Python dependencies.
+CI runs the tests on Python 3.9 and 3.13.
+
+`weather.py` handles fetching, validation, caching, and lunar estimates. `Panel.qml` handles the shell lifecycle, state, units, and formatting. `WeatherView.qml` is the panel layout; `Metric.qml` and `WeatherText.qml` provide shared styles. There are no third-party Python dependencies.
 
 ## Uninstall
 

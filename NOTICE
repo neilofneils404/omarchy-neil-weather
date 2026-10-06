@@ -1,0 +1,8 @@
+BarWidget.qml is adapted from Omarchy's native weather BarWidget.qml.
+Omarchy: https://github.com/basecamp/omarchy
+Copyright (c) David Heinemeier Hansson. MIT licensed.
+
+Weather data: Open-Meteo (https://open-meteo.com/), CC BY 4.0.
+The software license does not change the weather data's license.
+
+All other plugin components were authored for this project.

@@ -87,6 +87,20 @@ test('every WMO weather code gets a condition, an icon, and the right precipitat
   assert.equal(m.precipWord(undefined), 'rain')
 })
 
+test('a station report takes over the current condition and is credited', () => {
+  const observed = {code: 61, text: 'Light rain', station: 'Lorain County Regional Airport', ageMinutes: 8}
+  assert.equal(m.nowCondition(3, observed), 'Light rain')
+  assert.equal(m.nowCondition(3, undefined), 'Overcast')
+  assert.equal(m.nowCondition(3, {}), 'Overcast')
+  assert.equal(m.observedNote(observed), 'Light rain observed 8 min ago at Lorain County Regional Airport · NWS')
+  assert.equal(m.observedNote({text: 'Snow', ageMinutes: 0}), 'Snow observed just now · NWS')
+  assert.equal(m.observedBrief(observed), 'Light rain 8 min ago')
+  assert.equal(m.observedBrief({text: 'Snow', ageMinutes: 0}), 'Snow now')
+  assert.equal(m.observedBrief(null), '')
+  assert.equal(m.observedNote(undefined), '')
+  assert.equal(m.observedNote({}), '')
+})
+
 test('clear, partly cloudy, and fog have night icons', () => {
   for (const code of [0, 2, 45]) assert.notEqual(m.icon(code, 0), m.icon(code, 1))
   assert.equal(m.icon(3, 0), m.icon(3, 1))

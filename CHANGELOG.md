@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 — 2026-10-10
+
+- Observed precipitation (US only): rain, snow, or thunderstorms reported by a nearby NWS station now replace the modeled sky in the bar icon, the current condition, and the **Now** hour, with intensity ("Light rain"). The footer and tooltip credit the station.
+- Station reports are re-checked every 5 minutes, independently of the 15-minute forecast refresh.
+- The forecast is saved and shown before the station is asked, so a slow NWS never delays it.
+- Outside NWS coverage nothing changes, and the location is asked about at most once a month.
+
 ## 1.2.0 — 2026-10-06
 
 - Hourly strip: temperature, conditions, and rain chance for the next twelve hours.

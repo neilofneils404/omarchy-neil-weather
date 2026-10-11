@@ -3,6 +3,7 @@ Omarchy: https://github.com/basecamp/omarchy
 Copyright (c) David Heinemeier Hansson. MIT licensed.
 
 Weather data: Open-Meteo (https://open-meteo.com/), CC BY 4.0.
+Station observations: US National Weather Service (https://www.weather.gov/), public domain.
 The software license does not change the weather data's license.
 
 All other plugin components were authored for this project.

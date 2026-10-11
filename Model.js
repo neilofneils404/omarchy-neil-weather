@@ -134,6 +134,27 @@ function condition(code) {
   return "Rain"
 }
 
+// What the sky is doing now: a nearby station's report when there is one,
+// otherwise the modeled condition.
+function nowCondition(code, observed) {
+  return observed && observed.text ? observed.text : condition(code)
+}
+
+// Short form for the tooltip, honest about how old the report is.
+function observedBrief(observed) {
+  if (!observed || !observed.text) return ""
+  return observed.text + (observed.ageMinutes > 0 ? " " + observed.ageMinutes + " min ago" : " now")
+}
+
+// Credit for a station report that replaced the modeled sky.
+function observedNote(observed) {
+  if (!observed || !observed.text) return ""
+  return observed.text + " observed "
+    + (observed.ageMinutes > 0 ? observed.ageMinutes + " min ago" : "just now")
+    + (observed.station ? " at " + observed.station : "")
+    + " · NWS"
+}
+
 function inDays(n) {
   return "~" + n + (n === 1 ? " day" : " days")
 }
@@ -186,6 +207,9 @@ if (typeof module !== "undefined") {
     precipWord: precipWord,
     icon: icon,
     condition: condition,
+    nowCondition: nowCondition,
+    observedBrief: observedBrief,
+    observedNote: observedNote,
     inDays: inDays,
     moonOutlook: moonOutlook,
     moonLitSide: moonLitSide,

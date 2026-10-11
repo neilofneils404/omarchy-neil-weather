@@ -21,6 +21,8 @@ Panel {
   readonly property var days: report.days || []
   readonly property var day: days.length ? days[Math.min(selected, days.length - 1)] : ({})
   readonly property var current: report.current || ({})
+  // Precipitation a nearby NWS station is reporting right now (US only).
+  readonly property var observed: report.observed || null
   readonly property var moon: report.moon || ({name: "—", illumination: 0, phase: 0})
 
   // Units and clock follow the system locale unless a setting says otherwise;
@@ -35,6 +37,7 @@ Panel {
     : icon(undefined) + " —"
   readonly property string tooltip: report.available
     ? report.location
+      + (observed ? " · " + Model.observedBrief(observed) : "")
       + " · Today ↑ " + temp(report.today ? report.today.temperature_2m_max : null)
       + " ↓ " + temp(report.today ? report.today.temperature_2m_min : null)
       + (report.stale ? " · saved forecast" : "")
@@ -54,6 +57,8 @@ Panel {
   function precipWord(code) { return Model.precipWord(code) }
   function icon(code, isDay) { return Model.icon(code, isDay) }
   function condition(code) { return Model.condition(code) }
+  function nowCondition() { return Model.nowCondition(current.weather_code, observed) }
+  function observedNote() { return Model.observedNote(observed) }
   function moonOutlook() { return Model.moonOutlook(moon) }
 
   function dayName(d) {

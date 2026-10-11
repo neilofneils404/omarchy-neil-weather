@@ -9,6 +9,7 @@ Current temperature, today's full-day high and low, the next twelve hours, today
 ## Features
 
 - Current conditions, feels-like temperature, wind direction and gusts, humidity, and dew point.
+- **Raining right now?** In the US, rain, snow, or thunderstorms reported by a nearby National Weather Service station replace the modeled sky in the bar and the panel, so the icon matches the window.
 - Today's high and low, and what they will feel like, stay visible even after the warmest part of the day passes.
 - The next twelve hours at a glance: temperature, conditions, and rain chance for each.
 - Six forecast cards with highs, lows, conditions, and rain probability.
@@ -23,7 +24,7 @@ Current temperature, today's full-day high and low, the next twelve hours, today
 
 ## Requirements
 
-An Omarchy installation using the Quickshell plugin runtime, Python 3.9+ with system timezone data, and network access to `https://api.open-meteo.com`. Weather icons are Nerd Font glyphs drawn from the shell font, which is a Nerd Font on a stock Omarchy install.
+An Omarchy installation using the Quickshell plugin runtime, Python 3.9+ with system timezone data, and network access to `https://api.open-meteo.com`. In the US it also uses `https://api.weather.gov` for station observations; the forecast works without it. Weather icons are Nerd Font glyphs drawn from the shell font, which is a Nerd Font on a stock Omarchy install.
 
 Waybar-era Omarchy installations are not supported. Omarchy shell APIs can change; this initial version was validated against the shell installed on October 6, 2026.
 
@@ -51,7 +52,7 @@ Uses Omarchy's shared location at `~/.local/state/omarchy/settings/weather.json`
 omarchy weather location --set "Your city" latitude,longitude
 ```
 
-Stored coordinates are required. This plugin does not silently guess your location from your IP address. Coordinates are rounded to two decimal places (about 1 km) before they are sent to Open-Meteo, which is finer than the forecast grid.
+Stored coordinates are required. This plugin does not silently guess your location from your IP address. Coordinates are rounded to two decimal places (about 1 km) before they are sent to Open-Meteo, which is finer than the forecast grid. The same rounded coordinates are sent to the US National Weather Service to find nearby stations. A successful answer, including "not covered", is kept for a month, and in between only station IDs are requested; a failed lookup is retried with the next observation check.
 
 The bar entry in `~/.config/omarchy/shell.json` accepts:
 
@@ -72,7 +73,7 @@ Sunrise, sunset, and the hourly strip use a 12- or 24-hour clock according to yo
 ## Controls
 
 - Left or right click the bar pill: open/close. The panel always opens on today.
-- Hover the bar pill: today's high/low and freshness. A dimmed pill means a saved forecast.
+- Hover the bar pill: today's high/low, freshness, and any observed precipitation with its age. A dimmed pill means a saved forecast.
 - Middle click: force a refresh.
 - Click **Refresh** in the popup, or press R: force a refresh.
 - Click a forecast card or use Left/Right (or H/L): select the day.
@@ -83,9 +84,20 @@ Sunrise, sunset, and the hourly strip use a 12- or 24-hour clock according to yo
 
 Weather comes from [Open-Meteo](https://open-meteo.com/), using its best-match forecast models. Current conditions are modeled weather, not a personal weather-station observation. Data attribution: Open-Meteo, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
+### Observed precipitation (US only)
+
+A forecast model can say "overcast" while it is raining on you. For locations the US National Weather Service covers, the plugin also reads the latest report from the nearest [NWS](https://www.weather.gov/) observation station, usually an airport, and when that station reports precipitation it wins over the model for *right now*: the bar icon, the current condition, and the **Now** cell of the hourly strip. The panel footer names the station and the age of the report. Forecast hours and days are never altered.
+
+- Only precipitation falling at the station is taken (rain, drizzle, snow, sleet, freezing rain, hail, thunderstorms, with intensity); blowing snow and showers "in the vicinity" are not. A dry station does not override a model that says rain.
+- The two nearest stations within 40 km are considered; the second is used when the first has no recent report.
+- Reports older than 45 minutes are ignored. The station is re-checked every 5 minutes; reports usually reach the NWS API 10 to 20 minutes after they are taken.
+- A station a few kilometres away can miss, or catch, a shower you did not get.
+
+Outside the US there are no NWS stations, so none of this appears and conditions are exactly as modeled. If the NWS is unreachable, the forecast is unaffected. NWS data is in the public domain.
+
 The moon uses a mean synodic cycle calculation anchored to January 6, 2000. Phase, illumination, and next full and new moon timing are **approximate**, and labeled accordingly. It does not provide moonrise/moonset or a precision astronomical ephemeris. Sun times are supplied by Open-Meteo.
 
-Forecasts refresh every 15 minutes; the plugin checks once a minute for freshness, timezone rollover, and retry eligibility. The cache and retry state live in `~/.local/state/neil-weather/`, outside the repository. After an extended outage, expired forecast days disappear rather than being relabeled as today.
+Forecasts refresh every 15 minutes and station observations every 5; the plugin checks once a minute for freshness, timezone rollover, and retry eligibility. The cache and retry state live in `~/.local/state/neil-weather/`, outside the repository. After an extended outage, expired forecast days disappear rather than being relabeled as today.
 
 If the panel reports that the weather helper failed, check that `python3` is on the shell's `PATH`. A message about the weather cache means `~/.local/state/neil-weather/` is not writable.
 
@@ -99,7 +111,7 @@ qmllint -I /usr/share/omarchy/shell *.qml
 
 CI runs the Python tests on 3.9 and 3.13, and the display-logic tests under Node.
 
-`weather.py` handles fetching, validation, caching, and lunar estimates. `Model.js` holds the display logic (units, clock, icons, wording, sun and moon geometry) as plain functions so it can be tested without a running shell. `Panel.qml` handles the shell lifecycle and state. `WeatherView.qml` is the panel layout; `Metric.qml` and `WeatherText.qml` provide shared styles. There are no third-party Python dependencies.
+`weather.py` handles fetching, validation, caching, station observations, and lunar estimates. `Model.js` holds the display logic (units, clock, icons, wording, sun and moon geometry) as plain functions so it can be tested without a running shell. `Panel.qml` handles the shell lifecycle and state. `WeatherView.qml` is the panel layout; `Metric.qml` and `WeatherText.qml` provide shared styles. There are no third-party Python dependencies.
 
 ## Uninstall
 

@@ -100,7 +100,7 @@ Item {
           }
           WeatherText {
             width: parent.width
-            text: root.condition(root.current.weather_code) + "  ·  Feels like " + root.temp(root.current.apparent_temperature)
+            text: root.nowCondition() + "  ·  Feels like " + root.temp(root.current.apparent_temperature)
             color: view.muted
           }
         }
@@ -501,6 +501,7 @@ Item {
           : (root.report.stale ? "SAVED FORECAST · " : "UPDATED · ")
             + (root.report.ageMinutes === 0 ? "just now" : root.report.ageMinutes + " min ago")
             + "   /   Open-Meteo"
+            + (root.observed ? "   /   " + root.observedNote() : "")
             + (root.report.error ? "   /   " + root.report.error : "")
       }
     }

@@ -66,7 +66,7 @@ test('compass and wind detail', () => {
   assert.equal(m.compass(225), 'SW')
   assert.equal(m.compass(350), 'N')
   assert.equal(m.compass(null), '')
-  assert.equal(m.windDetail({wind_direction_10m: 225, wind_gusts_10m: 36}, 'mph'), 'SW · gusts 22 mph')
+  assert.equal(m.windDetail({wind_direction_10m: 225, wind_gusts_10m: 36}, 'mph'), 'SW · gusts 22')
   assert.equal(m.windDetail({}, 'mph'), 'At your location')
 })
 
@@ -137,4 +137,55 @@ test('bezier hits its endpoints and midpoint', () => {
   assert.equal(m.bezier(5, 10, 20, 95, 0), 5)
   assert.equal(m.bezier(5, 10, 20, 95, 1), 95)
   assert.equal(m.bezier(0, 0, 8, 8, .5), 4)
+})
+
+test('a day shows its rain, or its snow on a snowy day', () => {
+  assert.equal(m.amount({weather_code: 61, precipitation_sum: 10.2}, false), '10 mm')
+  assert.equal(m.amount({weather_code: 61, precipitation_sum: 10.2}, true), '0.4 in')
+  assert.equal(m.amount({weather_code: 61, precipitation_sum: .4}, false), '<1 mm')
+  assert.equal(m.amount({weather_code: 61, precipitation_sum: .5}, true), '<0.1 in')
+  assert.equal(m.amount({weather_code: 73, precipitation_sum: 8, snowfall_sum: 6.3}, false), '6 cm')
+  assert.equal(m.amount({weather_code: 73, precipitation_sum: 8, snowfall_sum: 6.3}, true), '2.5 in')
+  // A trace, or a forecast saved before amounts were kept, shows nothing.
+  assert.equal(m.amount({weather_code: 61, precipitation_sum: 0}, false), '')
+  assert.equal(m.amount({weather_code: 61}, true), '')
+  assert.equal(m.amount(null, true), '')
+})
+
+test('today is compared with yesterday in display degrees', () => {
+  assert.equal(m.yesterdayNote({temperature_2m_max: 20}, {temperature_2m_max: 15}, false), '5° warmer than yesterday')
+  assert.equal(m.yesterdayNote({temperature_2m_max: 15}, {temperature_2m_max: 20}, true), '9° cooler than yesterday')
+  assert.equal(m.yesterdayNote({temperature_2m_max: 15}, {temperature_2m_max: 15.5}, true), 'About the same as yesterday')
+  assert.equal(m.yesterdayNote({temperature_2m_max: 15}, null, true), '')
+})
+
+test('the nowcast reads as minutes soon and as a time later', () => {
+  assert.equal(m.nowcastText({state: 'starting', at: '2026-10-06T16:00', minutes: 18, kind: 'rain'}, true), 'Rain starting in ~20 min')
+  assert.equal(m.nowcastText({state: 'starting', at: '2026-10-06T16:00', minutes: 2, kind: 'rain'}, true), 'Rain starting in ~5 min')
+  assert.equal(m.nowcastText({state: 'easing', at: '2026-10-06T17:45', minutes: 125, kind: 'snow'}, false), 'Snow easing around 17:45')
+  assert.equal(m.nowcastText({state: 'continuing', at: '2026-10-06T19:45', minutes: 245, kind: 'rain'}, true), 'Rain through at least 7:45 PM')
+  assert.equal(m.nowcastText(null, true), '')
+})
+
+test('air quality uses the index of the place', () => {
+  const reading = {us_aqi: 112, european_aqi: 35, pollen: {}}
+  assert.deepEqual(m.air(reading, 'America/New_York'), {value: '112', level: 'Sensitive groups', detail: 'Sensitive groups', poor: true})
+  assert.deepEqual(m.air(reading, 'Europe/Berlin'), {value: '35', level: 'Fair', detail: 'Fair', poor: false})
+  assert.equal(m.air({us_aqi: 40, european_aqi: 12, pollen: {grass: 80, birch: 12}}, 'Europe/London').detail, 'Grass pollen high')
+  assert.equal(m.air({us_aqi: 40}, 'Europe/London').value, '40')
+  assert.equal(m.air(null, 'Europe/London'), null)
+  assert.equal(m.air({us_aqi: null}, 'America/Chicago'), null)
+})
+
+test('alerts get a glyph, a deadline, and an urgency', () => {
+  assert.equal(m.alertIcon('Tornado Warning'), '')
+  assert.equal(m.alertIcon('Winter Storm Watch'), '')
+  assert.equal(m.alertIcon('Civil Danger Warning'), '󰀦')
+  assert.equal(m.alertUntil({until: '2026-10-06T18:00'}, '2026-10-06', true), 'until 6:00 PM')
+  assert.equal(m.alertUntil({until: '2026-10-10T06:30'}, '2026-10-06', false), 'until Sat 06:30')
+  assert.equal(m.alertUntil({until: ''}, '2026-10-06', true), '')
+  assert.equal(m.alertUrgent({tier: 'warning', rank: 2}), true)
+  assert.equal(m.alertUrgent({tier: 'watch', rank: 3}), true)
+  assert.equal(m.alertUrgent({tier: 'advisory', rank: 2}), false)
+  assert.equal(m.alertUrgent(null), false)
 })

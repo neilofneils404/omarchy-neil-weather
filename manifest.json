@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "neil.weather",
   "name": "Weather / Neil",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "author": "Neil",
   "license": "MIT",
-  "description": "Six-day weather, daily highs and lows, sun and moon",
+  "description": "Six-day weather, alerts, rain timing, air quality, sun and moon",
   "kinds": [
     "bar-widget"
   ],
@@ -20,11 +20,13 @@
     "defaultSection": "center",
     "defaults": {
       "unit": "auto",
-      "wind": "auto"
+      "wind": "auto",
+      "notify": "off"
     },
     "schema": [
       { "key": "unit", "type": "enum", "label": "Units", "options": ["auto", "imperial", "metric"], "defaultValue": "auto", "description": "auto follows your system locale. imperial is °F and mph; metric is °C and km/h." },
-      { "key": "wind", "type": "enum", "label": "Wind speed", "options": ["auto", "mph", "km/h", "m/s"], "defaultValue": "auto", "description": "auto follows Units. Choose a value to show wind in that unit regardless." }
+      { "key": "wind", "type": "enum", "label": "Wind speed", "options": ["auto", "mph", "km/h", "m/s"], "defaultValue": "auto", "description": "auto follows Units. Choose a value to show wind in that unit regardless." },
+      { "key": "notify", "type": "enum", "label": "Notifications", "options": ["off", "alerts", "all"], "defaultValue": "off", "description": "alerts sends a desktop notification for new NWS watches and warnings (US only). all also says when rain or snow is about to start." }
     ]
   }
 }

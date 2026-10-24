@@ -14,6 +14,9 @@ Panel {
   property var hostWidget: null
   property var report: ({available: false, error: "Loading weather…"})
   property int selected: 0
+  // Which active alert the banner shows, and whether its text is open.
+  property int alertIndex: 0
+  property bool alertOpen: false
   // Set once the helper prints a report; a run that ends without one failed.
   property bool reported: false
 
@@ -24,6 +27,14 @@ Panel {
   // Precipitation a nearby NWS station is reporting right now (US only).
   readonly property var observed: report.observed || null
   readonly property var moon: report.moon || ({name: "—", illumination: 0, phase: 0})
+  // NWS watches, warnings, and advisories for the location (US only), most
+  // dangerous first.
+  readonly property var alerts: report.alerts || []
+  readonly property var alert: alerts.length ? alerts[Math.min(alertIndex, alerts.length - 1)] : null
+  readonly property var leadAlert: alerts.length ? alerts[0] : null
+  readonly property bool warning: Model.alertUrgent(leadAlert)
+  readonly property string nowcast: Model.nowcastText(report.nowcast, twelveHour)
+  readonly property var air: Model.air(report.air, report.timezone)
 
   // Units and clock follow the system locale unless a setting says otherwise;
   // the rules live in Model.js.
@@ -32,18 +43,25 @@ Panel {
   readonly property bool twelveHour: Model.usesTwelveHourClock(Qt.locale().timeFormat(Locale.ShortFormat))
 
   readonly property bool stale: report.available === true && report.stale === true
-  readonly property string label: report.available
-    ? icon(current.weather_code, current.is_day) + " " + temp(current.temperature_2m)
-    : icon(undefined) + " —"
+  // Watches and warnings put their glyph in front; advisories stay in the panel.
+  readonly property string label: (leadAlert && (warning || leadAlert.tier === "watch") ? Model.alertIcon(leadAlert.event) + "  " : "")
+    + (report.available
+      ? icon(current.weather_code, current.is_day) + " " + temp(current.temperature_2m)
+      : icon(undefined) + " —")
   readonly property string tooltip: report.available
-    ? report.location
+    ? (leadAlert ? leadAlert.event + " " + alertUntil(leadAlert) + (alerts.length > 1 ? " (+" + (alerts.length - 1) + ")" : "") + "\n" : "")
+      + report.location
       + (observed ? " · " + Model.observedBrief(observed) : "")
+      + (nowcast ? " · " + nowcast : "")
       + " · Today ↑ " + temp(report.today ? report.today.temperature_2m_max : null)
       + " ↓ " + temp(report.today ? report.today.temperature_2m_min : null)
       + (report.stale ? " · saved forecast" : "")
     : report.error
 
   readonly property var hours: report.hours || []
+  // A later day shows its own hours, two to a cell; today shows the next twelve.
+  readonly property bool laterDay: days.length > 0 && day.date !== report.localDate
+  readonly property var shownHours: laterDay ? ((report.dayHours || {})[day.date] || []) : hours
   readonly property real sunProgress: Model.sunProgress(day, report.localDate, report.localTime)
 
   // Thin wrappers that bind the current unit and clock settings.
@@ -55,6 +73,8 @@ Panel {
   function clock(v) { return Model.clock(v, twelveHour) }
   function hourLabel(v) { return Model.hourLabel(v, twelveHour) }
   function precipWord(code) { return Model.precipWord(code) }
+  function amount(d) { return Model.amount(d, fahrenheit) }
+  function alertUntil(a) { return Model.alertUntil(a, report.localDate, twelveHour) }
   function icon(code, isDay) { return Model.icon(code, isDay) }
   function condition(code) { return Model.condition(code) }
   function nowCondition() { return Model.nowCondition(current.weather_code, observed) }
@@ -68,7 +88,8 @@ Panel {
   function refresh(force) {
     if (fetch.running) return
     var script = decodeURIComponent(Qt.resolvedUrl("weather.py").toString().replace(/^file:\/\//, ""))
-    fetch.command = force === true ? ["python3", script, "--force"] : ["python3", script]
+    var notify = String(setting("notify", "off")).trim().toLowerCase()
+    fetch.command = ["python3", script, "--notify", notify === "alerts" || notify === "all" ? notify : "off"].concat(force === true ? ["--force"] : [])
     reported = false
     fetch.running = true
   }
@@ -80,6 +101,8 @@ Panel {
   function openFromHotkey() {
     // Always open on today, whichever day was being inspected last time.
     root.selected = 0
+    root.alertIndex = 0
+    root.alertOpen = false
     root.controller.show()
     refresh()
     Qt.callLater(function() { if (root.opened) root.suppressHover(true) })
@@ -157,6 +180,7 @@ Panel {
       }
       onTextKey: function(text) {
         if (text === "r" || text === "R") root.refresh(true)
+        if ((text === "a" || text === "A") && root.alerts.length) root.alertOpen = !root.alertOpen
       }
 
       WeatherView {

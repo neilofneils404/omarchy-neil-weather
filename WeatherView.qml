@@ -69,6 +69,142 @@ Item {
         }
       }
 
+      // Alerts: only while NWS has one out for this place. One line until
+      // opened, so a long-running advisory never crowds the forecast.
+      Rectangle {
+        id: banner
+        visible: root.alerts.length > 0
+        width: parent.width
+        height: visible ? bannerColumn.implicitHeight + Style.space(20) : 0
+        radius: Style.space(10)
+        readonly property color tone: Model.alertUrgent(root.alert) ? Color.urgent : Color.accent
+        color: Util.alpha(tone, bannerMouse.containsMouse && !root.alertOpen ? .16 : .1)
+        border.color: Util.alpha(tone, .45)
+        Behavior on color { ColorAnimation { duration: 140 } }
+
+        Column {
+          id: bannerColumn
+          x: Style.space(14)
+          y: Style.space(10)
+          width: parent.width - Style.space(28)
+          spacing: Style.space(10)
+
+          Item {
+            width: parent.width
+            height: Style.space(34)
+
+            WeatherText {
+              id: alertGlyph
+              width: Style.space(30)
+              anchors.verticalCenter: parent.verticalCenter
+              horizontalAlignment: Text.AlignHCenter
+              text: root.alert ? Model.alertIcon(root.alert.event) : ""
+              font.pixelSize: Style.space(22)
+              color: banner.tone
+            }
+            Column {
+              anchors.left: alertGlyph.right
+              anchors.leftMargin: Style.space(10)
+              anchors.right: alertMore.left
+              anchors.rightMargin: Style.space(10)
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Style.space(3)
+
+              WeatherText {
+                width: parent.width
+                text: root.alert ? root.alert.event.toUpperCase() : ""
+                font.pixelSize: Style.font.caption
+                font.letterSpacing: 1.5
+                font.bold: true
+                color: banner.tone
+              }
+              WeatherText {
+                width: parent.width
+                text: root.alert ? [root.alertUntil(root.alert), root.alert.sender].filter(function(s) { return s }).join(" · ") : ""
+                font.pixelSize: Style.font.caption
+                color: view.muted
+              }
+            }
+            WeatherText {
+              id: alertMore
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              text: (root.alerts.length > 1 ? (root.alertIndex + 1) + " of " + root.alerts.length + "  ·  " : "")
+                + (root.alertOpen ? "Hide ⌃" : "Details ⌄")
+              font.pixelSize: Style.font.caption
+              color: view.muted
+            }
+            MouseArea {
+              id: bannerMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.alertOpen = !root.alertOpen
+            }
+          }
+
+          // Every active alert, when there is more than one to choose from.
+          Flow {
+            visible: root.alertOpen && root.alerts.length > 1
+            width: parent.width
+            spacing: Style.space(6)
+
+            Repeater {
+              model: root.alertOpen ? root.alerts : []
+
+              Rectangle {
+                id: chip
+                required property var modelData
+                required property int index
+                readonly property bool current: index === root.alertIndex
+                readonly property color tone: Model.alertUrgent(modelData) ? Color.urgent : Color.accent
+                width: chipText.implicitWidth + Style.space(16)
+                height: Style.space(26)
+                radius: Style.space(6)
+                color: current ? Util.alpha(tone, .2) : Util.alpha(Color.foreground, chipMouse.containsMouse ? .08 : .04)
+                border.width: current ? 1 : 0
+                border.color: Util.alpha(tone, .55)
+
+                WeatherText {
+                  id: chipText
+                  anchors.centerIn: parent
+                  text: Model.alertIcon(chip.modelData.event) + "  " + chip.modelData.event
+                  font.pixelSize: Style.font.caption
+                  color: chip.current ? chip.tone : Color.foreground
+                }
+                MouseArea {
+                  id: chipMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.alertIndex = chip.index
+                }
+              }
+            }
+          }
+
+          WeatherText {
+            visible: root.alertOpen && text !== ""
+            width: parent.width
+            text: root.alert ? root.alert.description : ""
+            wrapMode: Text.Wrap
+            maximumLineCount: 8
+            font.pixelSize: Style.font.caption
+            lineHeight: 1.15
+          }
+          WeatherText {
+            visible: root.alertOpen && text !== ""
+            width: parent.width
+            text: root.alert ? root.alert.instruction : ""
+            wrapMode: Text.Wrap
+            maximumLineCount: 5
+            font.pixelSize: Style.font.caption
+            font.bold: true
+            lineHeight: 1.15
+          }
+        }
+      }
+
       // Hero: current conditions and today's full-day range.
       Rectangle {
         width: parent.width
@@ -103,6 +239,14 @@ Item {
             text: root.nowCondition() + "  ·  Feels like " + root.temp(root.current.apparent_temperature)
             color: view.muted
           }
+          // When the rain starts or stops, if it will within a few hours.
+          WeatherText {
+            visible: root.nowcast !== "" && !root.report.stale
+            width: parent.width
+            text: root.icon(root.report.nowcast && root.report.nowcast.kind === "snow" ? 71 : 61, 1) + "  " + root.nowcast
+            color: Color.accent
+            font.pixelSize: Style.font.caption
+          }
         }
 
         Column {
@@ -110,12 +254,12 @@ Item {
           anchors.right: parent.right
           anchors.rightMargin: Style.space(22)
           anchors.verticalCenter: parent.verticalCenter
-          spacing: Style.space(8)
+          spacing: Style.space(6)
 
           WeatherText {
             anchors.right: parent.right
             text: root.icon(root.current.weather_code, root.current.is_day)
-            font.pixelSize: Style.space(46)
+            font.pixelSize: Style.space(42)
             color: Color.accent
           }
           WeatherText {
@@ -144,21 +288,31 @@ Item {
             color: view.muted
             font.pixelSize: Style.font.caption
           }
+          WeatherText {
+            anchors.right: parent.right
+            visible: text !== ""
+            text: Model.yesterdayNote(root.report.today, root.report.yesterday, root.fahrenheit)
+            color: view.muted
+            font.pixelSize: Style.font.caption
+          }
         }
       }
 
-      // Hourly: how the next twelve hours play out. Hidden until the helper
-      // has hourly data (a forecast cached by an older version has none).
+      // Hourly: how the next twelve hours play out, or the selected day in
+      // two-hour steps. Hidden until the helper has hourly data (a forecast
+      // cached by an older version has none).
       WeatherText {
-        visible: root.hours.length > 0
-        text: "NEXT " + root.hours.length + " HOURS"
+        visible: root.shownHours.length > 0
+        text: root.laterDay
+          ? root.dayName(root.day).toUpperCase() + " / EVERY 2 HOURS"
+          : "NEXT " + root.shownHours.length + " HOURS"
         color: view.muted
         font.pixelSize: Style.font.caption
         font.letterSpacing: 2
       }
 
       Rectangle {
-        visible: root.hours.length > 0
+        visible: root.shownHours.length > 0
         width: parent.width
         height: Style.space(96)
         radius: Style.space(8)
@@ -170,58 +324,78 @@ Item {
           anchors.margins: Style.space(6)
 
           Repeater {
-            model: root.hours
+            model: root.shownHours
 
-            Column {
+            Item {
               id: hour
               required property var modelData
               required property int index
+              readonly property bool now: hour.index === 0 && !root.laterDay
 
-              width: hourly.width / Math.max(1, root.hours.length)
-              anchors.verticalCenter: parent.verticalCenter
-              spacing: Style.space(6)
+              width: hourly.width / Math.max(1, root.shownHours.length)
+              height: hourly.height
 
-              WeatherText {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                text: hour.index === 0 ? "Now" : root.hourLabel(hour.modelData.time)
-                font.pixelSize: Style.font.caption
-                color: hour.index === 0 ? Color.accent : view.muted
+              // How much falls, as a gauge filling the cell from below:
+              // full at a downpour (4 mm an hour).
+              Rectangle {
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: parent.width - Style.space(6)
+                radius: Style.space(4)
+                readonly property real rate: root.number(hour.modelData.precipitation) ? hour.modelData.precipitation / (root.laterDay ? 2 : 1) : 0
+                height: rate >= .1 ? Math.max(Style.space(3), parent.height * Math.min(1, rate / 4)) : 0
+                color: Util.alpha(Color.accent, .16)
               }
-              WeatherText {
+
+              Column {
                 width: parent.width
-                height: Style.space(20)
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                text: root.icon(hour.modelData.weather_code, hour.modelData.is_day)
-                font.pixelSize: Style.space(17)
-                color: Color.accent
-              }
-              WeatherText {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                text: root.temp(hour.modelData.temperature_2m)
-                font.bold: true
-                font.pixelSize: Style.font.caption
-              }
-              WeatherText {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                text: root.number(hour.modelData.precipitation_probability) ? hour.modelData.precipitation_probability + "%" : "—"
-                color: view.muted
-                font.pixelSize: Style.font.caption
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Style.space(6)
+
+                WeatherText {
+                  width: parent.width
+                  horizontalAlignment: Text.AlignHCenter
+                  text: hour.now ? "Now" : root.hourLabel(hour.modelData.time)
+                  font.pixelSize: Style.font.caption
+                  color: hour.now ? Color.accent : view.muted
+                }
+                WeatherText {
+                  width: parent.width
+                  height: Style.space(20)
+                  horizontalAlignment: Text.AlignHCenter
+                  verticalAlignment: Text.AlignVCenter
+                  text: root.icon(hour.modelData.weather_code, hour.modelData.is_day)
+                  font.pixelSize: Style.space(17)
+                  color: Color.accent
+                }
+                WeatherText {
+                  width: parent.width
+                  horizontalAlignment: Text.AlignHCenter
+                  text: root.temp(hour.modelData.temperature_2m)
+                  font.bold: true
+                  font.pixelSize: Style.font.caption
+                }
+                WeatherText {
+                  width: parent.width
+                  horizontalAlignment: Text.AlignHCenter
+                  text: root.number(hour.modelData.precipitation_probability) ? hour.modelData.precipitation_probability + "%" : "—"
+                  color: view.muted
+                  font.pixelSize: Style.font.caption
+                }
               }
             }
           }
         }
       }
 
-      // Metrics: wind and humidity are current; rain and UV follow the selected day.
+      // Metrics: wind, humidity, and air are current; rain and UV follow the
+      // selected day. Air quality takes a fifth tile only when there is a reading.
       Row {
         id: metrics
         width: parent.width
         spacing: Style.space(8)
-        readonly property real cell: (width - 3 * spacing) / 4
+        readonly property int count: root.air ? 5 : 4
+        readonly property real cell: (width - (count - 1) * spacing) / count
 
         Metric {
           width: metrics.cell
@@ -239,7 +413,9 @@ Item {
           width: metrics.cell
           label: root.precipWord(root.day.weather_code).toUpperCase() + " CHANCE"
           value: root.number(root.day.precipitation_probability_max) ? root.day.precipitation_probability_max + "%" : "—"
-          detail: root.days.length ? root.dayName(root.day) : "Daily forecast"
+          detail: root.days.length
+            ? (root.amount(root.day) ? root.amount(root.day) + " · " : "") + root.dayName(root.day)
+            : "Daily forecast"
         }
         Metric {
           width: metrics.cell
@@ -248,6 +424,14 @@ Item {
           detail: root.number(root.day.uv_index_max)
             ? root.uvLevel(root.day.uv_index_max) + " · " + root.dayName(root.day)
             : "Daily peak"
+        }
+        Metric {
+          visible: root.air !== null
+          width: metrics.cell
+          label: "AIR QUALITY"
+          value: root.air ? root.air.value : "—"
+          tone: root.air && root.air.poor ? Color.urgent : Color.foreground
+          detail: root.air ? root.air.detail : ""
         }
       }
 
@@ -311,9 +495,10 @@ Item {
               WeatherText {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
-                text: root.number(card.modelData.precipitation_probability_max)
-                  ? card.modelData.precipitation_probability_max + "% " + root.precipWord(card.modelData.weather_code)
-                  : "—"
+                text: !root.number(card.modelData.precipitation_probability_max)
+                  ? "—"
+                  : card.modelData.precipitation_probability_max + "%"
+                    + (root.amount(card.modelData) ? " · " + root.amount(card.modelData) : " " + root.precipWord(card.modelData.weather_code))
                 color: view.muted
                 font.pixelSize: Style.font.caption
               }
@@ -501,6 +686,7 @@ Item {
           : (root.report.stale ? "SAVED FORECAST · " : "UPDATED · ")
             + (root.report.ageMinutes === 0 ? "just now" : root.report.ageMinutes + " min ago")
             + "   /   Open-Meteo"
+            + (root.alerts.length ? "   /   NWS alerts" : "")
             + (root.observed ? "   /   " + root.observedNote() : "")
             + (root.report.error ? "   /   " + root.report.error : "")
       }

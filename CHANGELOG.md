@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.0 — 2026-10-23
+
+- Weather alerts (US only): active NWS watches, warnings, and advisories as a one-line banner that opens to the full text. A warning tints the bar pill in the theme's urgent color. Checked every 2 minutes; expired alerts drop off even while NWS is unreachable.
+- Rain timing: "Rain starting in ~20 min" or "Rain easing around 4:15 PM", from the 15-minute forecast, in the panel and the tooltip.
+- Rain and snow amounts on the day cards and in the rain tile.
+- The hourly strip shows a faint rain gauge, and follows the selected day in two-hour steps.
+- Today compared with yesterday's high.
+- Air quality tile: US AQI, or the European index in Europe, with notable pollen.
+- New `notify` setting: `off`, `alerts`, or `all` (alerts and rain about to start).
+- Wind gusts drop their repeated unit, to fit a fifth tile.
+
 ## 1.3.0 — 2026-10-10
 
 - Observed precipitation (US only): rain, snow, or thunderstorms reported by a nearby NWS station now replace the modeled sky in the bar icon, the current condition, and the **Now** hour, with intensity ("Light rain"). The footer and tooltip credit the station.

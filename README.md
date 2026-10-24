@@ -2,18 +2,23 @@
 
 An Omarchy weather plugin built around the question: **what is today actually going to feel like?**
 
-Current temperature, today's full-day high and low, the next twelve hours, today plus the next five days, and a quiet sun-and-moon panel. Uses the active Omarchy palette, spacing, and typography. No radar, API key, pip packages, or separate background service.
+Current temperature, today's full-day high and low, when the rain starts, the next twelve hours, today plus the next five days, and a quiet sun-and-moon panel. NWS watches and warnings appear when there are any, and stay out of the way when there are not. Uses the active Omarchy palette, spacing, and typography. No radar, API key, pip packages, or separate background service.
 
 ![Weather panel with illustrative demo data](preview.png)
 
 ## Features
 
 - Current conditions, feels-like temperature, wind direction and gusts, humidity, and dew point.
+- **When does the rain start or stop?** From Open-Meteo's 15-minute forecast: "Rain starting in ~20 min", "Snow easing around 4:15 PM". Shown only when it will within the next four hours.
+- **Weather alerts (US only).** Active NWS watches, warnings, and advisories appear as a one-line banner at the top of the panel. Open it, or press A, to read what, where, when, and what to do. A warning turns the bar pill the theme's urgent color, and watches and warnings put their glyph in front of it.
+- How today compares with yesterday: "5° warmer than yesterday".
+- Air quality: the US AQI, or the European index for places in Europe, tinted once it is unhealthy for sensitive groups. Notable pollen is named where Open-Meteo models it (Europe).
 - **Raining right now?** In the US, rain, snow, or thunderstorms reported by a nearby National Weather Service station replace the modeled sky in the bar and the panel, so the icon matches the window.
 - Today's high and low, and what they will feel like, stay visible even after the warmest part of the day passes.
-- The next twelve hours at a glance: temperature, conditions, and rain chance for each.
-- Six forecast cards with highs, lows, conditions, and rain probability.
-- Select a day to inspect its rain or snow chance, peak UV index, sunrise, sunset, and daylight duration.
+- The next twelve hours at a glance: temperature, conditions, and rain chance for each, with a faint gauge filling each hour by how much falls.
+- Six forecast cards with highs, lows, conditions, rain probability, and how much rain or snow is expected.
+- Select a day to inspect its hours in two-hour steps, its rain or snow chance and amount, peak UV index, sunrise, sunset, and daylight duration.
+- Optional desktop notifications for new watches and warnings, and for rain or snow about to start.
 - The sun moves along its arc through the day, and dims once it has set.
 - Drawn moon phase, oriented for your hemisphere, with approximate illumination and days until the next full and new moon.
 - Units and the 12- or 24-hour clock follow your system locale by default.
@@ -24,7 +29,7 @@ Current temperature, today's full-day high and low, the next twelve hours, today
 
 ## Requirements
 
-An Omarchy installation using the Quickshell plugin runtime, Python 3.9+ with system timezone data, and network access to `https://api.open-meteo.com`. In the US it also uses `https://api.weather.gov` for station observations; the forecast works without it. Weather icons are Nerd Font glyphs drawn from the shell font, which is a Nerd Font on a stock Omarchy install.
+An Omarchy installation using the Quickshell plugin runtime, Python 3.9+ with system timezone data, and network access to `https://api.open-meteo.com`, and to `https://air-quality-api.open-meteo.com` for air quality. In the US it also uses `https://api.weather.gov` for station observations and alerts; the forecast works without either. Weather icons are Nerd Font glyphs drawn from the shell font, which is a Nerd Font on a stock Omarchy install.
 
 Waybar-era Omarchy installations are not supported. Omarchy shell APIs can change; this initial version was validated against the shell installed on October 6, 2026.
 
@@ -68,6 +73,14 @@ The bar entry in `~/.config/omarchy/shell.json` accepts:
 
 `wind` sets the wind speed unit on its own: `auto` (default, follows `unit`), `mph`, `km/h`, or `m/s`.
 
+`notify` turns on desktop notifications:
+
+- `off` (default).
+- `alerts`: a notification for each new NWS watch or warning. Severe warnings stay on screen. An update to an alert already announced stays quiet unless it is raised, such as a watch becoming a warning. Alerts already active when you switch this on are noted quietly, unless one is a severe warning that needs action now.
+- `all`: alerts, plus a notice when rain or snow is about to start within 30 minutes, at most once every two hours.
+
+Clicking a notification opens the panel. Rain and snow amounts follow `unit`: inches with imperial, millimeters and centimeters with metric.
+
 Sunrise, sunset, and the hourly strip use a 12- or 24-hour clock according to your locale.
 
 ## Controls
@@ -76,6 +89,7 @@ Sunrise, sunset, and the hourly strip use a 12- or 24-hour clock according to yo
 - Hover the bar pill: today's high/low, freshness, and any observed precipitation with its age. A dimmed pill means a saved forecast.
 - Middle click: force a refresh.
 - Click **Refresh** in the popup, or press R: force a refresh.
+- Click the alert banner, or press A: read the alert. With more than one, pick another from the list.
 - Click a forecast card or use Left/Right (or H/L): select the day.
 - Escape or click outside: close.
 - Tab: move between Omarchy panels.

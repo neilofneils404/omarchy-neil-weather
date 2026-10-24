@@ -71,6 +71,9 @@ BarWidget {
     text: panelLoader.item ? panelLoader.item.label : ""
     // A saved forecast reads as dimmed; the tooltip says why.
     dimmed: panelLoader.item ? panelLoader.item.stale === true : false
+    // An active warning takes the bar's urgent color.
+    active: panelLoader.item ? panelLoader.item.warning === true : false
+    useActiveColor: active
     fontSize: Style.font.caption
     horizontalMargin: 10
     // Keep today’s full-day high and low one hover away.

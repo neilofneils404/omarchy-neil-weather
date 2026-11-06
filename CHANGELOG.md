@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.1 — 2026-11-06
+
+- Fix theme colors on Qt 6.12 by qualifying the Omarchy Color singleton.
+- Respect Omarchy’s animation preference in color transitions.
+- Wait for plugin discovery during installation and re-enable existing disabled widgets.
+- Add installer regression tests and an isolated native QML smoke check.
+
 ## 1.4.0 — 2026-10-23
 
 - Weather alerts (US only): active NWS watches, warnings, and advisories as a one-line banner that opens to the full text. A warning tints the bar pill in the theme's urgent color. Checked every 2 minutes; expired alerts drop off even while NWS is unreachable.

@@ -31,7 +31,7 @@ Current temperature, today's full-day high and low, when the rain starts, the ne
 
 An Omarchy installation using the Quickshell plugin runtime, Python 3.9+ with system timezone data, and network access to `https://api.open-meteo.com`, and to `https://air-quality-api.open-meteo.com` for air quality. In the US it also uses `https://api.weather.gov` for station observations and alerts; the forecast works without either. Weather icons are Nerd Font glyphs drawn from the shell font, which is a Nerd Font on a stock Omarchy install.
 
-Waybar-era Omarchy installations are not supported. Omarchy shell APIs can change; this initial version was validated against the shell installed on October 6, 2026.
+Waybar-era Omarchy installations are not supported. Omarchy shell APIs can change; version 1.4.1 was validated on Omarchy 4.5.0-3 with Qt 6.12.0. Older shell versions were not re-tested for this release.
 
 ## Install from a checkout
 
@@ -138,3 +138,11 @@ See [CHANGELOG.md](CHANGELOG.md).
 ## License
 
 MIT. The bar/popup integration is adapted from Omarchy; see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+### Native QML regression check
+
+On an Omarchy development desktop, run `python scripts/smoke-qml.py`. This
+loads the actual QML in a hidden Quickshell instance with disposable state and
+a stub weather helper. It detects color/binding failures without fetching live
+weather or modifying the running desktop. Python and JavaScript tests cover
+the real backend separately.

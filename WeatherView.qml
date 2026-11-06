@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Model.js" as Model
 
 Item {
@@ -7,7 +8,7 @@ Item {
 
   property var weather
   readonly property var root: weather
-  readonly property color muted: Util.alpha(Color.foreground, .62)
+  readonly property color muted: Util.alpha(Commons.Color.foreground, .62)
 
   implicitHeight: content.implicitHeight
 
@@ -37,7 +38,7 @@ Item {
             text: "WEATHER / " + (root.report.location || "Local weather").toUpperCase()
             font.pixelSize: Style.font.caption
             font.letterSpacing: 2
-            color: Color.accent
+            color: Commons.Color.accent
           }
           WeatherText {
             width: parent.width
@@ -52,7 +53,7 @@ Item {
           width: Style.space(88)
           height: Style.space(32)
           radius: Style.space(6)
-          color: refreshMouse.containsMouse ? Util.alpha(Color.accent, .15) : Util.alpha(Color.foreground, .06)
+          color: refreshMouse.containsMouse ? Util.alpha(Commons.Color.accent, .15) : Util.alpha(Commons.Color.foreground, .06)
 
           WeatherText {
             anchors.centerIn: parent
@@ -77,10 +78,10 @@ Item {
         width: parent.width
         height: visible ? bannerColumn.implicitHeight + Style.space(20) : 0
         radius: Style.space(10)
-        readonly property color tone: Model.alertUrgent(root.alert) ? Color.urgent : Color.accent
+        readonly property color tone: Model.alertUrgent(root.alert) ? Commons.Color.urgent : Commons.Color.accent
         color: Util.alpha(tone, bannerMouse.containsMouse && !root.alertOpen ? .16 : .1)
         border.color: Util.alpha(tone, .45)
-        Behavior on color { ColorAnimation { duration: 140 } }
+        Behavior on color { ColorAnimation { duration: Style.duration(140); easing.type: Easing.OutCubic } }
 
         Column {
           id: bannerColumn
@@ -157,11 +158,11 @@ Item {
                 required property var modelData
                 required property int index
                 readonly property bool current: index === root.alertIndex
-                readonly property color tone: Model.alertUrgent(modelData) ? Color.urgent : Color.accent
+                readonly property color tone: Model.alertUrgent(modelData) ? Commons.Color.urgent : Commons.Color.accent
                 width: chipText.implicitWidth + Style.space(16)
                 height: Style.space(26)
                 radius: Style.space(6)
-                color: current ? Util.alpha(tone, .2) : Util.alpha(Color.foreground, chipMouse.containsMouse ? .08 : .04)
+                color: current ? Util.alpha(tone, .2) : Util.alpha(Commons.Color.foreground, chipMouse.containsMouse ? .08 : .04)
                 border.width: current ? 1 : 0
                 border.color: Util.alpha(tone, .55)
 
@@ -170,7 +171,7 @@ Item {
                   anchors.centerIn: parent
                   text: Model.alertIcon(chip.modelData.event) + "  " + chip.modelData.event
                   font.pixelSize: Style.font.caption
-                  color: chip.current ? chip.tone : Color.foreground
+                  color: chip.current ? chip.tone : Commons.Color.foreground
                 }
                 MouseArea {
                   id: chipMouse
@@ -210,10 +211,10 @@ Item {
         width: parent.width
         height: Style.space(172)
         radius: Style.space(12)
-        border.color: Util.alpha(Color.accent, .2)
+        border.color: Util.alpha(Commons.Color.accent, .2)
         gradient: Gradient {
-          GradientStop { position: 0; color: Util.alpha(Color.accent, .12) }
-          GradientStop { position: 1; color: Util.alpha(Color.foreground, .025) }
+          GradientStop { position: 0; color: Util.alpha(Commons.Color.accent, .12) }
+          GradientStop { position: 1; color: Util.alpha(Commons.Color.foreground, .025) }
         }
 
         Column {
@@ -244,7 +245,7 @@ Item {
             visible: root.nowcast !== "" && !root.report.stale
             width: parent.width
             text: root.icon(root.report.nowcast && root.report.nowcast.kind === "snow" ? 71 : 61, 1) + "  " + root.nowcast
-            color: Color.accent
+            color: Commons.Color.accent
             font.pixelSize: Style.font.caption
           }
         }
@@ -260,7 +261,7 @@ Item {
             anchors.right: parent.right
             text: root.icon(root.current.weather_code, root.current.is_day)
             font.pixelSize: Style.space(42)
-            color: Color.accent
+            color: Commons.Color.accent
           }
           WeatherText {
             anchors.right: parent.right
@@ -316,7 +317,7 @@ Item {
         width: parent.width
         height: Style.space(96)
         radius: Style.space(8)
-        color: Util.alpha(Color.foreground, .035)
+        color: Util.alpha(Commons.Color.foreground, .035)
 
         Row {
           id: hourly
@@ -344,7 +345,7 @@ Item {
                 radius: Style.space(4)
                 readonly property real rate: root.number(hour.modelData.precipitation) ? hour.modelData.precipitation / (root.laterDay ? 2 : 1) : 0
                 height: rate >= .1 ? Math.max(Style.space(3), parent.height * Math.min(1, rate / 4)) : 0
-                color: Util.alpha(Color.accent, .16)
+                color: Util.alpha(Commons.Color.accent, .16)
               }
 
               Column {
@@ -357,7 +358,7 @@ Item {
                   horizontalAlignment: Text.AlignHCenter
                   text: hour.now ? "Now" : root.hourLabel(hour.modelData.time)
                   font.pixelSize: Style.font.caption
-                  color: hour.now ? Color.accent : view.muted
+                  color: hour.now ? Commons.Color.accent : view.muted
                 }
                 WeatherText {
                   width: parent.width
@@ -366,7 +367,7 @@ Item {
                   verticalAlignment: Text.AlignVCenter
                   text: root.icon(hour.modelData.weather_code, hour.modelData.is_day)
                   font.pixelSize: Style.space(17)
-                  color: Color.accent
+                  color: Commons.Color.accent
                 }
                 WeatherText {
                   width: parent.width
@@ -430,7 +431,7 @@ Item {
           width: metrics.cell
           label: "AIR QUALITY"
           value: root.air ? root.air.value : "—"
-          tone: root.air && root.air.poor ? Color.urgent : Color.foreground
+          tone: root.air && root.air.poor ? Commons.Color.urgent : Commons.Color.foreground
           detail: root.air ? root.air.detail : ""
         }
       }
@@ -458,10 +459,10 @@ Item {
             width: (content.width - 5 * Style.space(8)) / 6
             height: Style.space(132)
             radius: Style.space(8)
-            color: current ? Util.alpha(Color.accent, .12) : Util.alpha(Color.foreground, forecastMouse.containsMouse ? .08 : .035)
+            color: current ? Util.alpha(Commons.Color.accent, .12) : Util.alpha(Commons.Color.foreground, forecastMouse.containsMouse ? .08 : .035)
             border.width: current ? 1 : 0
-            border.color: Util.alpha(Color.accent, .55)
-            Behavior on color { ColorAnimation { duration: 140 } }
+            border.color: Util.alpha(Commons.Color.accent, .55)
+            Behavior on color { ColorAnimation { duration: Style.duration(140); easing.type: Easing.OutCubic } }
 
             Column {
               anchors.centerIn: parent
@@ -473,7 +474,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 text: root.dayName(card.modelData)
                 font.pixelSize: Style.font.caption
-                color: card.current ? Color.accent : view.muted
+                color: card.current ? Commons.Color.accent : view.muted
               }
               WeatherText {
                 width: parent.width
@@ -483,7 +484,7 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 text: root.icon(card.modelData.weather_code, 1)
                 font.pixelSize: Style.space(25)
-                color: Color.accent
+                color: Commons.Color.accent
               }
               WeatherText {
                 width: parent.width
@@ -523,7 +524,7 @@ Item {
           width: (parent.width - parent.spacing) / 2
           height: Style.space(152)
           radius: Style.space(10)
-          color: Util.alpha(Color.foreground, .04)
+          color: Util.alpha(Commons.Color.foreground, .04)
 
           Column {
             anchors.fill: parent
@@ -551,25 +552,25 @@ Item {
                 onPaint: {
                   var ctx = getContext("2d")
                   ctx.reset()
-                  ctx.strokeStyle = Util.alpha(Color.accent, .45)
+                  ctx.strokeStyle = Util.alpha(Commons.Color.accent, .45)
                   ctx.lineWidth = 1.5
                   ctx.beginPath()
                   ctx.moveTo(5, height - 5)
                   ctx.bezierCurveTo(width * .25, -height * .45, width * .75, -height * .45, width - 5, height - 5)
                   ctx.stroke()
-                  ctx.strokeStyle = Util.alpha(Color.foreground, .12)
+                  ctx.strokeStyle = Util.alpha(Commons.Color.foreground, .12)
                   ctx.beginPath()
                   ctx.moveTo(0, height - 5)
                   ctx.lineTo(width, height - 5)
                   ctx.stroke()
                 }
-                Connections { target: Color; function onAccentChanged() { sunCanvas.requestPaint() } }
+                Connections { target: Commons.Color; function onAccentChanged() { sunCanvas.requestPaint() } }
               }
               WeatherText {
                 x: Math.max(0, Math.min(sky.width - width, Model.bezier(5, sky.width * .25, sky.width * .75, sky.width - 5, sky.t) - width / 2))
                 y: Math.max(0, Math.min(sky.height - height, Model.bezier(sky.height - 5, -sky.height * .45, -sky.height * .45, sky.height - 5, sky.t) - height / 2))
                 text: root.icon(0, 1)
-                color: Color.accent
+                color: Commons.Color.accent
                 opacity: sky.night ? .35 : 1
                 font.pixelSize: Style.space(24)
               }
@@ -595,7 +596,7 @@ Item {
           width: (parent.width - parent.spacing) / 2
           height: Style.space(152)
           radius: Style.space(10)
-          color: Util.alpha(Color.foreground, .04)
+          color: Util.alpha(Commons.Color.foreground, .04)
 
           Column {
             anchors.fill: parent
@@ -620,7 +621,7 @@ Item {
                   var r = width * .45, cx = width / 2, cy = height / 2
                   var p = root.moon.phase || 0
                   ctx.reset()
-                  ctx.fillStyle = Util.alpha(Color.accent, .13)
+                  ctx.fillStyle = Util.alpha(Commons.Color.accent, .13)
                   ctx.beginPath()
                   ctx.arc(cx, cy, r, 0, Math.PI * 2)
                   ctx.fill()
@@ -631,7 +632,7 @@ Item {
                   var side = Model.moonLitSide(p, root.moon.southern === true)
                   var k = Math.cos(2 * Math.PI * p)
                   var steps = 60, j, x, y
-                  ctx.fillStyle = Color.accent
+                  ctx.fillStyle = Commons.Color.accent
                   ctx.beginPath()
                   for (j = 0; j <= steps; j++) {
                     y = -r + 2 * r * j / steps
@@ -648,7 +649,7 @@ Item {
                   ctx.fill()
                 }
                 Connections { target: root; function onMoonChanged() { moonCanvas.requestPaint() } }
-                Connections { target: Color; function onAccentChanged() { moonCanvas.requestPaint() } }
+                Connections { target: Commons.Color; function onAccentChanged() { moonCanvas.requestPaint() } }
               }
               Column {
                 spacing: Style.space(6)
@@ -680,7 +681,7 @@ Item {
         wrapMode: Text.Wrap
         elide: Text.ElideNone
         font.pixelSize: Style.font.caption
-        color: root.report.stale || !root.report.available ? Color.urgent : view.muted
+        color: root.report.stale || !root.report.available ? Commons.Color.urgent : view.muted
         text: !root.report.available
           ? root.report.error
           : (root.report.stale ? "SAVED FORECAST · " : "UPDATED · ")

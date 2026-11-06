@@ -4,11 +4,12 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Python 3.9 has no setup-python build for Ubuntu 26.04 (ubuntu-latest).
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        # Oldest version the README promises, and the newest.
+        # Oldest version the README promises, plus a modern interpreter.
         python-version: ['3.9', '3.13']
     steps:
       - uses: actions/checkout@v4
